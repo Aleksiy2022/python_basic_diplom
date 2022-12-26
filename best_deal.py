@@ -2,7 +2,16 @@ import json
 import requests
 
 
-def hotels_filter(region_id: str, first_day: str, last_day: str, count_hotels: int) -> list:
+def hotels_filter(region_id: str, first_day: str, last_day: str, count_hotels: int, price_range: list) -> list:
+    """
+    Отправляет запрос с указанными параметрами к API для получения списка отелей.
+    :param region_id: ID города
+    :param first_day: день заезда в отель
+    :param last_day: день выезда из отеля
+    :param count_hotels: количество отелей для показа пользователю
+    :param price_range: диапазон цен
+    :return: возвращает список из списка отелей и списка id отелей
+    """
     url = "https://hotels4.p.rapidapi.com/properties/v2/list"
 
     payload = {
@@ -28,8 +37,12 @@ def hotels_filter(region_id: str, first_day: str, last_day: str, count_hotels: i
         ],
         "resultsStartingIndex": 0,
         "resultsSize": count_hotels,
-        "sort": "PRICE_LOW_TO_HIGH",
-        "filters": {}
+        "sort": "DISTANCE",
+        "filters": {
+            "max": price_range[1],
+            "min": price_range[0]
+
+        }
     }
     headers = {
         "content-type": "application/json",
@@ -45,7 +58,12 @@ def hotels_filter(region_id: str, first_day: str, last_day: str, count_hotels: i
     return [hotels, propertyid_list]
 
 
-def get_address(propertyid_list):
+def get_address(propertyid_list: list) -> list:
+    """
+    Отправляет запрос к API для получения списка адресов отелей.
+    :param propertyid_list: списjr id отелей
+    :return: возвращает список адресов Отелей
+    """
     property_addresses = []
     for i_id in propertyid_list:
         url = "https://hotels4.p.rapidapi.com/properties/v2/detail"
@@ -69,4 +87,3 @@ def get_address(propertyid_list):
         property_addresses.append(hotel_address)
 
     return property_addresses
-

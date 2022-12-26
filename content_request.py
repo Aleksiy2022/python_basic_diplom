@@ -16,7 +16,7 @@ def find_location(my_city: str) -> Optional[Any]:
         querystring = {"q": my_city, "locale": "ru_RU", "langid": "1033", "siteid": "300000001"}
 
         headers = {
-            "X-RapidAPI-Key": "082ba9ba9fmsha317abcb2165cf0p12fb48jsna7fee03af5cf",
+            "X-RapidAPI-Key": "1b236d6a0fmsha230fb245ece2fbp12459fjsnd513e7eba581",
             "X-RapidAPI-Host": "hotels4.p.rapidapi.com"
         }
 
@@ -50,7 +50,7 @@ def get_hotel_photo(hotel_id: str) -> list:
     }
     headers = {
         "content-type": "application/json",
-        "X-RapidAPI-Key": "082ba9ba9fmsha317abcb2165cf0p12fb48jsna7fee03af5cf",
+        "X-RapidAPI-Key": "1b236d6a0fmsha230fb245ece2fbp12459fjsnd513e7eba581",
         "X-RapidAPI-Host": "hotels4.p.rapidapi.com"
     }
 
