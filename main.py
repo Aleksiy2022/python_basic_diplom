@@ -1,8 +1,9 @@
 import telebot
 from telebot import types
 import low_price
+import best_deal
 import content_request
-from check_data import is_date_valid, check_count_hotels
+from check_data import is_date_valid, check_count_hotels, check_price_range
 from typing import Any, Dict, Optional, List
 
 
@@ -14,13 +15,14 @@ class User:
     """
     Класс Пользователь.
         Pars: user_id - уникальный идентификатор пользователя Telegram.
-        Attrs:  all_users (Dict[int: Any]): - словарь хранящий пользователей.
-                self.city (str) - город, запрашиваемый пользователем.
-                self.city_id (str) - код ID города.
-                self.hotels_count (int) - количество отелей, запрашиваемое пользователем.
-                self.user_command (str) - команда, введеная пользователем.
-                self.check_in (List[int, int, int]) - дата въезда в отель.
-                self.check_out (List[int, int, int]) - дата выезда из отеля.
+        Attrs:  all_users: Dict[int: Any]: - словарь хранящий пользователей.
+                self.city: : Optional[str] - город, запрашиваемый пользователем.
+                self.city_id: Optional[bool | str] - код ID города.
+                self.hotels_count: Optional[bool | int] - количество отелей, запрашиваемое пользователем.
+                self.user_command: Optional[str] - команда, введеная пользователем.
+                self.check_in: Optional[bool | List[str, str, str]] - дата въезда в отель.
+                self.check_out: Optional[bool | List[str, str, str]] - дата выезда из отеля.
+                self.price_range: Optional[bool | List[int, int]] - диапозон цен на указанный пользователем период
                 self.get_photo (bool) - флаг получения фото. True - получаем фото, False - не получаем.
     """
     all_users: Dict[int, Any] = dict()
@@ -30,19 +32,17 @@ class User:
         self.city_id: Optional[bool | str] = None
         self.hotels_count: Optional[bool | int] = None
         self.user_command: Optional[str] = None
-        self.check_in: Optional[Any] = None
+        self.check_in: Optional[bool | List[str, str, str]] = None
         self.check_out: Optional[bool | List[str, str, str]] = None
         self.get_photo: bool = False
         # self.blook_chose_date = False
-        # self.sort_flag = 'ASC'
         # self.need_to_get_ranges_flag = False
-        # self.p_range = None
-        # self.d_range = None
+        self.price_range: Optional[bool | List[int, int]] = None
 
         User.add_user(user_id, self)
 
     @staticmethod
-    def get_user(user_id: int) -> Any:  # не уверен, что верно отметил аннотацию. Функция возвращает объек как я понял?
+    def get_user(user_id: int) -> Any:
         """
         :param user_id: уникальный идентификатор пользователя Telegram.
         :return: Объект пользователь
@@ -84,31 +84,28 @@ def welcome(message: Any) -> None:
     """
     if message.from_user.id not in User.all_users:
         User(message.from_user.id)
-    bot.send_message(message.chat.id, 'Добро пожаловать! Я помогу сделать лучший выбор среди всех отелей Мира!')
+    bot.send_message(message.chat.id, 'Добро пожаловать!')
     keyboard = types.InlineKeyboardMarkup()
     item_1 = types.InlineKeyboardButton('Help', callback_data='help_me')
     keyboard.add(item_1, row_width=1)
-    welcome_message = 'Тебе нужна помощь, или хочешь сразу преступить к поиску?'
+    welcome_message = 'Нажми "Help" , чтобы узнать возможности бота.'
     bot.send_message(message.chat.id, text=welcome_message, reply_markup=keyboard)
 
 
 @bot.message_handler(commands=['help'])
-def help_text(message: Any):
+def help_text(message: Any) -> None:
     """
     Функция отправляет в чат ответ на команду '/help'
     """
 
     bot.send_message(message.chat.id,
-                     'Lowprise - Узнать топ самых дешёвых отелей в городе (отправьте /lowprice).')
+                     '/lowprice - Узнать топ самых дешёвых отелей в городе.')
     bot.send_message(message.chat.id,
-                     'Highprice - Узнать топ самых дорогих отелей в городе (отправьте /highprice).')
+                     '/bestdeal - Узнать топ отелей, наиболее подходящих по цене и расположению от центра.')
     bot.send_message(message.chat.id,
-                     'Bestdeal - Узнать топ отелей, наиболее подходящих по цене и расположению от центра '
-                     '(самые дешёвые и находятся ближе всего к центру) (отправьте /bestdeal)')
+                     '/history - Узнать историю поиска отелей.')
     bot.send_message(message.chat.id,
-                     'History - Узнать историю поиска отелей (отправьте /history)')
-    bot.send_message(message.chat.id,
-                     'Help - помощь по командам бота (отправьте /help) ')
+                     '/help - помощь по командам бота.')
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -121,9 +118,7 @@ def catches_answer(call: Any) -> None:
         bot.send_message(call.message.chat.id,
                          '/lowprice - Узнать топ самых дешёвых отелей в городе.')
         bot.send_message(call.message.chat.id,
-                         '/highprice - Узнать топ самых дорогих отелей в городе.')
-        bot.send_message(call.message.chat.id,
-                         '/bestdeal - Узнать топ отелей, наиболее подходящих по цене и расположению от центра')
+                         '/bestdeal - Узнать топ отелей, наиболее подходящих по цене и расположению от центра.')
         bot.send_message(call.message.chat.id,
                          '/history - Узнать историю поиска отелей.')
         bot.send_message(call.message.chat.id,
@@ -134,6 +129,8 @@ def catches_answer(call: Any) -> None:
         call.data = 'no'
     # Если команда от пользователя '/lowprice' выводит список отелей по заданным данным от дешевого к дорогому.
     if call.data == 'no':
+        hotels: Optional[list] = None
+        hotels_address: Optional[list] = None
         if user.user_command == 'lowprice':  # Передаем все полученные данные в функцию для получения списка отелей.
             find_data = low_price.hotels_filter(
                 user.city_id,
@@ -141,22 +138,34 @@ def catches_answer(call: Any) -> None:
                 user.check_out,
                 user.hotels_count
             )
-            hotels: list = find_data[0]  # Список отелей.
-            hotels_address: list = low_price.get_address(find_data[1])  # Cписок адресов отелей.
-            for i_num, i_hotel in enumerate(hotels):  # Вывод пользователю информации об отеле.
-                bot.send_message(call.message.chat.id, f'********************************************')
-                bot.send_message(call.message.chat.id, f'Отель: {i_hotel["name"]}.')
-                bot.send_message(call.message.chat.id, f'Адрес отеля: {hotels_address[i_num]}.')
-                bot.send_message(call.message.chat.id,
-                                 f'Расстояние до центра в км: '
-                                 f'{i_hotel["destinationInfo"]["distanceFromDestination"]["value"]}.')
-                bot.send_message(call.message.chat.id,
-                                 f'Цена за указанный период: '
-                                 f'{i_hotel["price"]["displayMessages"][1]["lineItems"][0]["value"].replace("total", "$")}.')
-                if user.get_photo:  # Вывод пользователю фотографий по отелю.
-                    photos: List[str] = content_request.get_hotel_photo(i_hotel['id'])  # Список ссылок на фотографии.
-                    for i_photo in photos:
-                        bot.send_photo(call.message.chat.id, i_photo)
+            hotels = find_data[0]  # Список отелей.
+            hotels_address = low_price.get_address(find_data[1])  # Cписок адресов отелей.
+        if user.user_command == 'bestdeal':  # Передаем все полученные данные в функцию для получения списка отелей.
+            find_data = best_deal.hotels_filter(
+                user.city_id,
+                user.check_in,
+                user.check_out,
+                user.hotels_count,
+                user.price_range
+            )
+            hotels = find_data[0]
+            hotels_address = best_deal.get_address(find_data[1])
+        for i_num, i_hotel in enumerate(hotels):  # Вывод пользователю информации об отеле.
+            bot.send_message(call.message.chat.id, f'********************************************')
+            bot.send_message(call.message.chat.id, f'Отель: {i_hotel["name"]}.')
+            bot.send_message(call.message.chat.id, f'Адрес отеля: {hotels_address[i_num]}.')
+            bot.send_message(call.message.chat.id,
+                             f'Расстояние до центра в км: '
+                             f'{i_hotel["destinationInfo"]["distanceFromDestination"]["value"]}.')
+            bot.send_message(call.message.chat.id,
+                             f'Цена за указанный период: '
+                             f'{i_hotel["price"]["displayMessages"][1]["lineItems"][0]["value"].replace("total", "$")}.')
+            bot.send_message(call.message.chat.id,
+                             f'Ссылка на сайт отеля: https://www.hotels.com/h{i_hotel["id"]}.Hotel-Information)')
+            if user.get_photo:  # Вывод пользователю фотографий по отелю.
+                photos: List[str] = content_request.get_hotel_photo(i_hotel['id'])  # Список ссылок на фотографии.
+                for i_photo in photos:
+                    bot.send_photo(call.message.chat.id, i_photo)
 
 
 @bot.message_handler(commands=['lowprice'])
@@ -171,18 +180,17 @@ def lowprice(message: Any) -> None:
     bot.register_next_step_handler(message, get_city_location)
 
 
-# @bot.message_handler(commands=['highprice'])
-# def highprice(message):
-#     bot.send_message(message.from_user.id, 'Отправьте боту название города для поиска отелей.')
-#     pass
-#
-#
-# @bot.message_handler(commands=['bestdeal'])
-# def bestdeal(message):
-#     bot.send_message(message.from_user.id, 'Отправьте боту название города для поиска отелей.')
-#     pass
-#
-#
+@bot.message_handler(commands=['bestdeal'])
+def bestdeal(message):
+    """
+    Сохраняет команду пользователя. Запрашивает город для поиска отелей.
+    Перебрасывает в функцию 'get_city_location'
+    """
+    user = User.get_user(message.from_user.id)  # получение оъекта - пользователь
+    user.user_command = 'bestdeal'
+    bot.send_message(message.from_user.id, 'Отправьте боту название города для поиска отелей.')
+    bot.register_next_step_handler(message, get_city_location)
+
 # @bot.message_handler(commands=['history'])
 # def history(message):
 #     pass
@@ -202,7 +210,7 @@ def get_city_location(message: Any) -> None:
     user.city_id = content_request.find_location(user.city)
     user.get_photo = False
     if user.city_id:
-        bot.send_message(message.chat.id, 'Напишите дату заезда в формате: дд-мм-гггг.')
+        bot.send_message(message.chat.id, 'Напишите дату заезда в формате: дд.мм.гггг')
         bot.register_next_step_handler(message, get_check_in)
     elif not user.city_id:
         bot.send_message(message.chat.id, 'Указанный Вами город не найден.')
@@ -220,29 +228,53 @@ def get_check_in(message: Any) -> None:
     user = User.get_user(message.from_user.id)  # Получение оъекта - пользователь.
     user.check_in = is_date_valid(message.text)
     if user.check_in:
-        bot.send_message(message.chat.id, 'Напишите дату выезда в формате: дд-мм-гггг.')
+        bot.send_message(message.chat.id, 'Напишите дату выезда в формате: дд.мм.гггг')
         bot.register_next_step_handler(message, get_check_out)
     elif not user.check_in:
         bot.send_message(message.chat.id, 'Указан некорректный формат даты.')
-        bot.send_message(message.chat.id, 'Попробуйте еще раз: дд-мм-гггг')
+        bot.send_message(message.chat.id, 'Попробуйте еще раз. Пример: 23.05.2023 (дд.мм.гггг)')
         bot.register_next_step_handler(message, get_check_in)
 
 
 def get_check_out(message: Any) -> None:
     """
     Проверяет корректность ввода даты выезда из отеля. Если корректный формат, сохраняет даты в аттр 'self.check_out',
-    запрашивает количество отелей для вывода. Если не корректный формат даты , выводит сообщение об ошибке,
+    в зависимости от введенной команды продолжает исполнение программы в функцию 'get_count_hotels' или
+    'get_price_range'. Если не корректный формат даты , выводит сообщение об ошибке,
     возвращает в начало функции.
     """
     user = User.get_user(message.from_user.id)  # Получение оъекта - пользователь.
     user.check_out = is_date_valid(message.text)
     if user.check_out:
-        bot.send_message(message.chat.id, 'Какое количество отелей показать? (не более 25)')
-        bot.register_next_step_handler(message, get_count_hotels)
+        if user.user_command == 'lowprice':
+            bot.send_message(message.chat.id, 'Какое количество отелей показать? (не более 25)')
+            bot.register_next_step_handler(message, get_count_hotels)
+        if user.user_command == 'bestdeal':
+            bot.send_message(message.chat.id,
+                             'Введите диапозон цен за ночь в отеле, в формате: 10$-50$.')
+            bot.register_next_step_handler(message, get_price_range)
+
     elif not user.check_out:
         bot.send_message(message.chat.id, 'Указан некорректный формат даты.')
-        bot.send_message(message.chat.id, 'Попробуйте еще раз: дд-мм-гггг')
+        bot.send_message(message.chat.id, 'Попробуйте еще раз. Пример: 23.05.2023 (дд.мм.гггг)')
         bot.register_next_step_handler(message, get_check_out)
+
+
+def get_price_range(message: Any) -> None:
+    """
+    Проверяет корректность ввода диапозона цен. Если корректный формат, сохраняет диапозон цен в аттр 'self.price_range'
+    и переводит выполнение программы в функцию 'get_distance_range'. Если не корректный формат диапозона цен ,
+    выводит сообщение об ошибке, возвращает в начало функции.
+    """
+    user = User.get_user(message.from_user.id)  # Получение оъекта - пользователь.
+    user.price_range = check_price_range(message.text)
+    if user.price_range:
+        bot.send_message(message.chat.id, 'Какое количество отелей показать? (не более 25)')
+        bot.register_next_step_handler(message, get_count_hotels)
+    if not user.price_range:
+        bot.send_message(message.chat.id, 'Введен не корректный диапозон цен')
+        bot.send_message(message.chat.id, 'Попробуйте еще раз. Пример: 10$-50$')
+        bot.register_next_step_handler(message, get_price_range)
 
 
 def get_count_hotels(message: Any) -> None:
