@@ -46,9 +46,9 @@ def check_price_range(price_range: str) -> Optional[bool | List[int | int]]:
     :return: Возвращает булевый тип данных (False) или диапозон в виде списка [int, int]
     """
     try:
-        if int(price_range):
-            raise TypeError
-        price_range = list(map(int, price_range.replace('$', '').split('-')))
+        price_range = list(map(int, price_range.split('-')))
+        if len(price_range) != 2:
+            raise BaseException
         return price_range
-    except (ValueError, TypeError):
+    except (BaseException, ValueError):
         return False
