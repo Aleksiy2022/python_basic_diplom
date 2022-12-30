@@ -69,4 +69,3 @@ def get_address(propertyid_list):
         property_addresses.append(hotel_address)
 
     return property_addresses
-

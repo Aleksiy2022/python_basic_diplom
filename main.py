@@ -1,5 +1,7 @@
 import telebot
 from telebot import types
+import time
+import history
 import low_price
 import best_deal
 import content_request
@@ -14,7 +16,7 @@ bot = telebot.TeleBot('5933669640:AAH3fo7iaDZSvdlwA8ydagX0_HefIrEZBmE')
 class User:
     """
     Класс Пользователь.
-        Pars: user_id - уникальный идентификатор пользователя Telegram.
+        Pars: user_id: int - уникальный идентификатор пользователя Telegram.
         Attrs:  all_users: Dict[int: Any]: - словарь хранящий пользователей.
                 self.city: : Optional[str] - город, запрашиваемый пользователем.
                 self.city_id: Optional[bool | str] - код ID города.
@@ -23,11 +25,13 @@ class User:
                 self.check_in: Optional[bool | List[str, str, str]] - дата въезда в отель.
                 self.check_out: Optional[bool | List[str, str, str]] - дата выезда из отеля.
                 self.price_range: Optional[bool | List[int, int]] - диапозон цен на указанный пользователем период
-                self.get_photo (bool) - флаг получения фото. True - получаем фото, False - не получаем.
+                self.get_photo: bool - флаг получения фото. True - получаем фото, False - не получаем.
+                self.date_enter_command: Optional[str] - сохраняет время отправки команды пользователем
     """
     all_users: Dict[int, Any] = dict()
 
     def __init__(self, user_id: int) -> None:
+        self.user_id: int = user_id
         self.city: Optional[str] = None
         self.city_id: Optional[bool | str] = None
         self.hotels_count: Optional[bool | int] = None
@@ -35,10 +39,8 @@ class User:
         self.check_in: Optional[bool | List[str, str, str]] = None
         self.check_out: Optional[bool | List[str, str, str]] = None
         self.get_photo: bool = False
-        # self.blook_chose_date = False
-        # self.need_to_get_ranges_flag = False
         self.price_range: Optional[bool | List[int, int]] = None
-
+        self.date_enter_command: Optional[str] = None
         User.add_user(user_id, self)
 
     @staticmethod
@@ -140,6 +142,11 @@ def catches_answer(call: Any) -> None:
             )
             hotels = find_data[0]  # Список отелей.
             hotels_address = low_price.get_address(find_data[1])  # Cписок адресов отелей.
+            # Сохранение информации в БД о команде, даты и времени введения команды, и запрошенных отелях.
+            for hotel in hotels:
+                history.data_recording(
+                    user.user_id, user.user_command, user.date_enter_command, hotel["name"]
+                )
         if user.user_command == 'bestdeal':  # Передаем все полученные данные в функцию для получения списка отелей.
             find_data = best_deal.hotels_filter(
                 user.city_id,
@@ -150,6 +157,11 @@ def catches_answer(call: Any) -> None:
             )
             hotels = find_data[0]
             hotels_address = best_deal.get_address(find_data[1])
+            # Сохранение информации в БД о команде, даты и времени введения команды, и запрошенных отелях.
+            for hotel in hotels:
+                history.data_recording(
+                    user.user_id, user.user_command, user.date_enter_command, hotel["name"]
+                )
         for i_num, i_hotel in enumerate(hotels):  # Вывод пользователю информации об отеле.
             bot.send_message(call.message.chat.id, f'********************************************')
             bot.send_message(call.message.chat.id, f'Отель: {i_hotel["name"]}.')
@@ -176,6 +188,8 @@ def lowprice(message: Any) -> None:
     """
     user = User.get_user(message.from_user.id)  # получение оъекта - пользователь
     user.user_command = 'lowprice'
+    now_time = time.strftime('%d.%m.20%y %X', time.gmtime(time.time()))  # Получение текущей даты и времени
+    user.date_enter_command = now_time  # cохраняем время ввода команды
     bot.send_message(message.from_user.id, 'Отправьте боту название города для поиска отелей.')
     bot.register_next_step_handler(message, get_city_location)
 
@@ -188,12 +202,21 @@ def bestdeal(message):
     """
     user = User.get_user(message.from_user.id)  # получение оъекта - пользователь
     user.user_command = 'bestdeal'
+    now_time = time.strftime('%d.%m.20%y %X', time.gmtime(time.time()))  # Получение текущей даты и времени
+    user.date_enter_command = now_time  # cохраняем время ввода команды
     bot.send_message(message.from_user.id, 'Отправьте боту название города для поиска отелей.')
     bot.register_next_step_handler(message, get_city_location)
 
-# @bot.message_handler(commands=['history'])
-# def history(message):
-#     pass
+
+@bot.message_handler(commands=['history'])
+def user_history(message):
+    user = User.get_user(message.from_user.id)  # получение оъекта - пользователь
+    notes = history.print_history(user.user_id)
+    for i_note in notes:
+        bot.send_message(message.from_user.id,
+                         f'Дата {i_note[1]}\n'
+                         f'Отправили команду /{i_note[0]}\n'
+                         f'Отель {i_note[2]}')
 
 
 def get_city_location(message: Any) -> None:
@@ -251,7 +274,7 @@ def get_check_out(message: Any) -> None:
             bot.register_next_step_handler(message, get_count_hotels)
         if user.user_command == 'bestdeal':
             bot.send_message(message.chat.id,
-                             'Введите диапозон цен за ночь в отеле, в формате: 10$-50$.')
+                             'Введите диапозон цен (в долларах) за ночь в отеле, в формате: 10-50.')
             bot.register_next_step_handler(message, get_price_range)
 
     elif not user.check_out:
