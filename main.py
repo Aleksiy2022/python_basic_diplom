@@ -163,21 +163,35 @@ def catches_answer(call: Any) -> None:
                     user.user_id, user.user_command, user.date_enter_command, hotel["name"]
                 )
         for i_num, i_hotel in enumerate(hotels):  # Вывод пользователю информации об отеле.
-            bot.send_message(call.message.chat.id, f'********************************************')
-            bot.send_message(call.message.chat.id, f'Отель: {i_hotel["name"]}.')
-            bot.send_message(call.message.chat.id, f'Адрес отеля: {hotels_address[i_num]}.')
-            bot.send_message(call.message.chat.id,
-                             f'Расстояние до центра в км: '
-                             f'{i_hotel["destinationInfo"]["distanceFromDestination"]["value"]}.')
-            bot.send_message(call.message.chat.id,
-                             f'Цена за указанный период: '
-                             f'{i_hotel["price"]["displayMessages"][1]["lineItems"][0]["value"].replace("total", "$")}.')
-            bot.send_message(call.message.chat.id,
-                             f'Ссылка на сайт отеля: https://www.hotels.com/h{i_hotel["id"]}.Hotel-Information)')
             if user.get_photo:  # Вывод пользователю фотографий по отелю.
-                photos: List[str] = content_request.get_hotel_photo(i_hotel['id'])  # Список ссылок на фотографии.
-                for i_photo in photos:
-                    bot.send_photo(call.message.chat.id, i_photo)
+                photos: list[str] = content_request.get_hotel_photo(i_hotel['id'])  # Список ссылок на фотографии.
+                media = []
+                for number, i_photos in enumerate(photos):
+                    if number == 4:
+                        media.append(types.InputMediaPhoto(
+                            i_photos,
+                            caption=
+                            f'Отель: {i_hotel["name"]}.\n'
+                            f'Адрес отеля: {hotels_address[i_num]}.\n'
+                            f'Расстояние до центра в км: ' +
+                            f'{i_hotel["destinationInfo"]["distanceFromDestination"]["value"]}\n'
+                            f'Цена за указанный период: ' +
+                            f'{i_hotel["price"]["displayMessages"][1]["lineItems"][0]["value"].replace("total", "$")}.\n'
+                            f'Ссылка на сайт отеля: https://www.hotels.com/h{i_hotel["id"]}.Hotel-Information)'))
+                    else:
+                        media.append(types.InputMediaPhoto(i_photos))
+                bot.send_media_group(call.message.chat.id, media)
+            elif not user.get_photo:
+                bot.send_message(
+                    call.message.chat.id,
+                    f'Отель: {i_hotel["name"]}.\n'
+                    f'Адрес отеля: {hotels_address[i_num]}.\n'
+                    f'Расстояние до центра в км: ' +
+                    f'{i_hotel["destinationInfo"]["distanceFromDestination"]["value"]}\n'
+                    f'Цена за указанный период: ' +
+                    f'{i_hotel["price"]["displayMessages"][1]["lineItems"][0]["value"].replace("total", "$")}.\n'
+                    f'Ссылка на сайт отеля: https://www.hotels.com/h{i_hotel["id"]}.Hotel-Information)'
+                )
 
 
 @bot.message_handler(commands=['lowprice'])
@@ -229,7 +243,7 @@ def get_city_location(message: Any) -> None:
      и возвращает в начало функции до корректного введения города.
     """
     user = User.get_user(message.from_user.id)  # Получение оъекта - пользователь.
-    user.city = message.text.capitalize()
+    user.city = message.text
     user.city_id = content_request.find_location(user.city)
     user.get_photo = False
     if user.city_id:
