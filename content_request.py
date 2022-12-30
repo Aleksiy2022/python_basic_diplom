@@ -40,7 +40,6 @@ def get_hotel_photo(hotel_id: str) -> list:
     :return: Возвращает список url для получения фотографий с сайта.
     """
     url = "https://hotels4.p.rapidapi.com/properties/v2/detail"
-    photos = []
     payload = {
         "currency": "USD",
         "eapid": 1,
@@ -56,6 +55,7 @@ def get_hotel_photo(hotel_id: str) -> list:
 
     response = requests.request("POST", url, json=payload, headers=headers)
     result = json.loads(response.text)
+    photos = []
     for i_photo in range(5):
         photo = result['data']['propertyInfo']['propertyGallery']['images'][i_photo]['image']['url']
         photos.append(photo)
