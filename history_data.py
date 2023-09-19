@@ -10,6 +10,7 @@ def data_recording(user_id: int, command: str, date: str, name_hotel: str) -> No
     :param name_hotel: str - наименование отеля;
     :return: None.
     """
+
     with sq.connect('bot.db') as con:
         cur = con.cursor()
         cur.execute(
@@ -20,13 +21,15 @@ def data_recording(user_id: int, command: str, date: str, name_hotel: str) -> No
 
 def print_history(user_id: int) -> list:
     """
+    Возвращает список из 10 последних найденных отелей.
     :param user_id: int - уникальный идентификатор пользователя Telegram;
     :return: Список кортежей с информацией из БД.
     """
+
     with sq.connect('bot.db') as con:
         cur = con.cursor()
         history = cur.execute(
             f'SELECT user_command, date_enter_command, hotel FROM users WHERE user_id == "{user_id}"'
         )
 
-        return history.fetchall()
+        return history.fetchall()[-10:]

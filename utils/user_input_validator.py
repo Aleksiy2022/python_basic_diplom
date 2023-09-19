@@ -7,6 +7,7 @@ def is_date_valid(date_str: str) -> Optional[bool | list]:
     :param date_str: дата въезда или выезда, которые вводит пользователь.
     :return: Возвращает логический тип данных (False) или список строковых значений даты [день, месяц, год]
     """
+
     try:
         day, month, year = map(int, date_str.split('.'))
         if month in (4, 6, 9, 11):
@@ -30,6 +31,7 @@ def check_count_hotels(number: str) -> Optional[bool | int]:
     :param number: количество отелей для вывода пользователю
     :return: Возвращает логический тип данных (False) или количество отелей для вывода пользователю.
     """
+
     try:
         if int(number) in [i_num for i_num in range(1, 26)]:
             return int(number)
@@ -45,6 +47,7 @@ def check_price_range(price_range: str) -> Optional[bool | List[int | int]]:
     :param price_range: str
     :return: Возвращает булевый тип данных (False) или диапозон в виде списка [int, int]
     """
+
     try:
         price_range = list(map(int, price_range.split('-')))
         if len(price_range) != 2:
